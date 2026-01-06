@@ -32,6 +32,47 @@ A comprehensive voice-enabled AI agent for booking, rescheduling, and canceling 
 
 ## 🚀 Quick Start
 
+### Local Development
+
+1. **Install dependencies:**
+   ```bash
+   npm install
+   ```
+
+2. **Set up environment variables:**
+   Create a `.env` file in the root directory (see Configuration section)
+
+3. **Start the backend server:**
+   ```bash
+   npm run dev
+   ```
+
+4. **Access the interfaces:**
+   - Text Chat: `http://localhost:3000`
+   - Voice Interface (STT only): `http://localhost:3000/voice.html`
+   - Complete Voice (STT + TTS): `http://localhost:3000/voice-complete.html`
+
+### Streamlit Deployment
+
+For deploying the voice interface on Streamlit Cloud:
+
+1. **Install Streamlit:**
+   ```bash
+   pip install -r requirements.txt
+   ```
+
+2. **Run Streamlit app locally:**
+   ```bash
+   streamlit run streamlit_app.py
+   ```
+
+3. **Deploy to Streamlit Cloud:**
+   - See `STREAMLIT_DEPLOYMENT.md` for detailed instructions
+   - Deploy backend separately (Railway, Render, etc.)
+   - Set `BACKEND_URL` in Streamlit secrets
+
+## 🚀 Quick Start (Old)
+
 ### Prerequisites
 - Node.js 18+ 
 - npm or yarn

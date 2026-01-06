@@ -14,7 +14,16 @@ import { textToSpeech } from './services/elevenLabsService.js';
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-app.use(cors());
+// CORS configuration - allow Streamlit and localhost
+app.use(cors({
+  origin: [
+    'http://localhost:8501',
+    'https://*.streamlit.app',
+    'http://localhost:3000',
+    process.env.FRONTEND_URL
+  ].filter(Boolean),
+  credentials: true
+}));
 app.use(express.json());
 app.use(express.static('public'));
 
