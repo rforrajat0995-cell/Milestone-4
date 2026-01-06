@@ -1,0 +1,36 @@
+# Dependencies
+node_modules/
+package-lock.json
+
+# Environment variables
+.env
+.env.bak
+.env.local
+.env.*.local
+
+# System files
+.DS_Store
+*.log
+*.swp
+*.swo
+*~
+
+# Build outputs
+dist/
+build/
+coverage/
+
+# Data files (bookings stored locally)
+data/
+*.json.bak
+
+# IDE
+.vscode/
+.idea/
+*.iml
+
+# Temporary files
+*.tmp
+*.temp
+check-env.js
+
