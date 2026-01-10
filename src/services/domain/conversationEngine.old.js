@@ -2,23 +2,23 @@
  * Main conversation engine that orchestrates the entire flow
  */
 
-import { detectIntent, generateResponse, detectSlotSelectionIntent } from './ai/groqService.js';
+import { detectIntent, generateResponse, detectSlotSelectionIntent } from './groqService.js';
 import { detectPII, detectInvestmentAdvice, getPIIResponse, getInvestmentAdviceResponse } from '../utils/guardrails.js';
-import { getSession, createSession, updateSession } from '../repositories/SessionRepository.js';
-import { getNextState, STATES } from './domain/dialogStateMachine.js';
-import { getMockAvailableSlots } from './domain/mockAvailability.js';
+import { getSession, createSession, updateSession } from './sessionManager.js';
+import { getNextState, STATES } from './dialogStateMachine.js';
+import { getMockAvailableSlots } from './mockAvailability.js';
 import { generateBookingCode } from '../utils/bookingCode.js';
-import { createBooking, updateBooking, cancelBooking } from '../repositories/BookingRepository.js';
+import { createBooking, updateBooking, cancelBooking } from './bookingStore.js';
 import {
   handleBookIntent,
   handleRescheduleIntent,
   handleCancelIntent,
   handleAvailabilityIntent,
   extractTimePreferences
-} from './domain/intentHandlers.js';
-import { createCalendarEvent, updateCalendarEvent, deleteCalendarEvent } from './external/googleCalendar.js';
-import { appendBookingToSheet, updateBookingInSheet, markBookingCancelledInSheet } from './external/googleSheets.js';
-import { createBookingEmailDraft, createRescheduleEmailDraft, createCancellationEmailDraft } from './external/emailService.js';
+} from './intentHandlers.js';
+import { createCalendarEvent, updateCalendarEvent, deleteCalendarEvent } from './googleCalendar.js';
+import { appendBookingToSheet, updateBookingInSheet, markBookingCancelledInSheet } from './googleSheets.js';
+import { createBookingEmailDraft, createRescheduleEmailDraft, createCancellationEmailDraft } from './emailService.js';
 
 /**
  * Processes a user message and returns AI response
@@ -155,7 +155,7 @@ export async function processMessage(sessionId, userMessage) {
           const excludeBookingCode = session.bookingCodeToReschedule || null;
           
           // Check if we need to verify day-specific or day+time-specific availability
-          const { isDateFullyBooked, isSlotBooked } = await import('../repositories/BookingRepository.js');
+          const { isDateFullyBooked, isSlotBooked } = await import('./bookingStore.js');
           const { formatISTDate, getISTDayOfWeek, getISTToday } = await import('../utils/istDate.js');
           
           let targetDate = null;
@@ -453,14 +453,14 @@ export async function processMessage(sessionId, userMessage) {
       }
       
       // CRITICAL: Check if slot is still available before creating booking
-      const { isSlotBooked, isDateFullyBooked } = await import('../repositories/BookingRepository.js');
+      const { isSlotBooked, isDateFullyBooked } = await import('./bookingStore.js');
       const slotIsBooked = isSlotBooked(bookingData.selectedSlot.date, bookingData.selectedSlot.time);
       console.log(`[Slot Conflict Check] Before creating booking ${bookingCode}: slot ${bookingData.selectedSlot.date} ${bookingData.selectedSlot.time} is booked: ${slotIsBooked}`);
       
       if (slotIsBooked) {
         console.log(`[Slot Conflict Check] Slot conflict detected! Slot ${bookingData.selectedSlot.date} ${bookingData.selectedSlot.time} is already booked.`);
         // Slot was booked in the meantime - show next available slots
-        const { getMockAvailableSlots } = await import('./domain/mockAvailability.js');
+        const { getMockAvailableSlots } = await import('./mockAvailability.js');
         const allSlots = getMockAvailableSlots(finalSession.preferences || {});
         
         // Filter out the booked slot
@@ -837,13 +837,13 @@ export async function processMessage(sessionId, userMessage) {
       const selectedSlot = finalSession.offeredSlots?.[slotIndex];
       if (selectedSlot) {
         // Check if this slot is already booked (exclude reschedule booking if applicable)
-        const { isSlotBooked, isDateFullyBooked } = await import('../repositories/BookingRepository.js');
+        const { isSlotBooked, isDateFullyBooked } = await import('./bookingStore.js');
         const excludeBookingCode = finalSession.bookingCodeToReschedule || null;
         if (isSlotBooked(selectedSlot.date, selectedSlot.time, excludeBookingCode)) {
           // Check if all slots for that day are booked
           if (isDateFullyBooked(selectedSlot.date, excludeBookingCode)) {
             // All slots for that day are booked - show next available slots from other days
-            const { getMockAvailableSlots } = await import('./domain/mockAvailability.js');
+            const { getMockAvailableSlots } = await import('./mockAvailability.js');
             const allAvailableSlots = getMockAvailableSlots({}, excludeBookingCode);
             
             // Filter out slots from the fully booked date
@@ -889,7 +889,7 @@ export async function processMessage(sessionId, userMessage) {
             }
           } else {
             // Only this specific slot is booked - show other slots from the same day
-            const { getMockAvailableSlots } = await import('./domain/mockAvailability.js');
+            const { getMockAvailableSlots } = await import('./mockAvailability.js');
             const allSlots = getMockAvailableSlots(finalSession.preferences, excludeBookingCode);
             
             // Get slots from the same date
@@ -962,7 +962,7 @@ export async function processMessage(sessionId, userMessage) {
       const selectedSlot = finalSession.offeredSlots?.[slotIndex];
       if (selectedSlot) {
         // Check if this slot is already booked (exclude reschedule booking if applicable)
-        const { isSlotBooked, isDateFullyBooked } = await import('../repositories/BookingRepository.js');
+        const { isSlotBooked, isDateFullyBooked } = await import('./bookingStore.js');
         const excludeBookingCode = finalSession.bookingCodeToReschedule || null;
         console.log(`[Slot Conflict Check - Fallback] Checking slot: ${selectedSlot.date} ${selectedSlot.time}, excludeBookingCode: ${excludeBookingCode}`);
         const slotIsBooked = isSlotBooked(selectedSlot.date, selectedSlot.time, excludeBookingCode);
@@ -973,7 +973,7 @@ export async function processMessage(sessionId, userMessage) {
           console.log(`[Slot Conflict Check - Fallback] Date fully booked: ${dateFullyBooked} for date: ${selectedSlot.date}`);
           if (dateFullyBooked) {
             // All slots for that day are booked - show next available slots from other days
-            const { getMockAvailableSlots } = await import('./domain/mockAvailability.js');
+            const { getMockAvailableSlots } = await import('./mockAvailability.js');
             const allAvailableSlots = getMockAvailableSlots({}, excludeBookingCode);
             
             // Filter out slots from the fully booked date
@@ -1019,7 +1019,7 @@ export async function processMessage(sessionId, userMessage) {
             }
           } else {
             // Only this specific slot is booked - show other slots from the same day
-            const { getMockAvailableSlots } = await import('./domain/mockAvailability.js');
+            const { getMockAvailableSlots } = await import('./mockAvailability.js');
             const allSlots = getMockAvailableSlots(finalSession.preferences, excludeBookingCode);
             
             // Get slots from the same date
@@ -1087,7 +1087,7 @@ export async function processMessage(sessionId, userMessage) {
   if (finalSession && finalSession.state === STATES.CONFIRMATION && 
       (userMessage.toLowerCase().includes('yes') || userMessage.toLowerCase().includes('confirm'))) {
     // Double-check that the slot is still available (in case it was booked between selection and confirmation)
-    const { isSlotBooked: checkSlotBooked } = await import('../repositories/BookingRepository.js');
+    const { isSlotBooked: checkSlotBooked } = await import('./bookingStore.js');
     if (finalSession.selectedSlot && checkSlotBooked(finalSession.selectedSlot.date, finalSession.selectedSlot.time)) {
       // Slot was booked in the meantime - offer new slots
       const { getMockAvailableSlots } = await import('./mockAvailability.js');
@@ -1134,7 +1134,7 @@ export async function processMessage(sessionId, userMessage) {
     };
     
     // CRITICAL: Check if slot is still available before creating booking
-    const { isSlotBooked: checkSlotBookedFallback } = await import('../repositories/BookingRepository.js');
+    const { isSlotBooked: checkSlotBookedFallback } = await import('./bookingStore.js');
     const slotIsBooked = checkSlotBookedFallback(finalSession.selectedSlot.date, finalSession.selectedSlot.time);
     console.log(`[Slot Conflict Check - Fallback] Before creating booking ${bookingCode}: slot ${finalSession.selectedSlot.date} ${finalSession.selectedSlot.time} is booked: ${slotIsBooked}`);
     
